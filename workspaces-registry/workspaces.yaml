@@ -1,0 +1,9 @@
+version: 1
+
+workspaces:
+  - key: exemplo_fin
+    name: "EXEMPLO - Financeiro"
+    hml_workspace_id: "00000000-0000-0000-0000-000000000000"
+    prod_workspace_id: "00000000-0000-0000-0000-000000000000"
+    owner_group: "owners-exemplo"
+    owner_env: "PROD_OWNER_EXEMPLO"
