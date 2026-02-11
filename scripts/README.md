@@ -1,1 +1,1 @@
-scripts/README.md
+Scripts auxiliares de validação, extração e deploy.
