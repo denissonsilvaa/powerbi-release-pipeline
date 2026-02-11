@@ -1,0 +1,24 @@
+name: Power BI - Deploy PROD
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sustentacao:
+    environment: PROD_SUSTENTACAO
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Aguardando aprovação Sustentação"
+
+  owner:
+    needs: sustentacao
+    environment: PROD_OWNER_EXEMPLO
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Aguardando aprovação Owner"
+
+  deploy:
+    needs: owner
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Deploy PROD (placeholder)"
