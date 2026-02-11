@@ -1,0 +1,13 @@
+name: Power BI - Intake
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Nova solicitação Power BI"
+          echo "${{ github.event.issue.title }}"
