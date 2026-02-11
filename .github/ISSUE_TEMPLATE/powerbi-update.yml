@@ -1,0 +1,39 @@
+name: "Power BI - Submeter Atualização"
+description: "Solicitação de publicação Power BI (HML / PROD)"
+title: "[Power BI] <workspace_key> - <HML|PROD> - <Resumo>"
+labels: ["powerbi-update"]
+body:
+  - type: input
+    id: workspace_key
+    attributes:
+      label: "Workspace (key)"
+      description: "Conforme workspaces-registry/workspaces.yaml"
+      placeholder: "exemplo_fin"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target_env
+    attributes:
+      label: "Ambiente"
+      options:
+        - HML
+        - PROD
+    validations:
+      required: true
+
+  - type: textarea
+    id: package_location
+    attributes:
+      label: "Arquivo ou link"
+      description: "Anexe o PBIX/PBIP na issue ou informe o link."
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: "Resumo da alteração"
+      description: "Descreva objetivamente a mudança."
+    validations:
+      required: true
