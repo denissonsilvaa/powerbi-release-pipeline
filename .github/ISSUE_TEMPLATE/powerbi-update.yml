@@ -1,4 +1,4 @@
-name: "Power BI - Submeter Atualização"
+name: "Power BI - Submeter Publicação"
 description: "Solicitação de publicação Power BI (HML / PROD)"
 title: "[Power BI] <workspace_key> - <HML|PROD> - <Resumo>"
 labels: ["powerbi-update"]
@@ -17,8 +17,8 @@ body:
     attributes:
       label: "Ambiente"
       options:
-        - HML
-        - PROD
+        - Homologação
+        - Produção
     validations:
       required: true
 
