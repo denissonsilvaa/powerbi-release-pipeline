@@ -2,10 +2,126 @@ name: Power BI - Deploy HML
 
 on:
   workflow_dispatch:
+    inputs:
+      workspace_key:
+        description: 'Chave do workspace (conforme workspaces.yaml)'
+        required: true
+        type: string
+      pbix_artifact:
+        description: 'Nome do artefato com o PBIX'
+        required: true
+        type: string
+      report_name:
+        description: 'Nome do relatório no Power BI'
+        required: true
+        type: string
+      issue_number:
+        description: 'Número da issue de origem'
+        required: false
+        type: string
+
+  workflow_call:
+    inputs:
+      workspace_key:
+        required: true
+        type: string
+      pbix_artifact:
+        required: true
+        type: string
+      report_name:
+        required: true
+        type: string
+      issue_number:
+        required: false
+        type: string
+
+env:
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
 jobs:
-  deploy:
-    environment: HML
+  deploy-hml:
+    name: Deploy to HML
     runs-on: ubuntu-latest
+    environment: HML
+    
+    outputs:
+      report_id: ${{ steps.deploy.outputs.report_id }}
+      dataset_id: ${{ steps.deploy.outputs.dataset_id }}
+    
     steps:
-      - run: echo "Deploy HML (placeholder)"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download PBIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.pbix_artifact }}
+          path: ./pbix
+
+      - name: Read workspace configuration
+        id: workspace
+        run: |
+          WORKSPACE_KEY="${{ inputs.workspace_key }}"
+          pip install yq --quiet
+          
+          HML_WORKSPACE_ID=$(cat workspaces-registry/workspaces.yaml | yq -r ".workspaces[] | select(.key == \"$WORKSPACE_KEY\") | .hml_workspace_id")
+          WORKSPACE_NAME=$(cat workspaces-registry/workspaces.yaml | yq -r ".workspaces[] | select(.key == \"$WORKSPACE_KEY\") | .name")
+          
+          if [ "$HML_WORKSPACE_ID" == "null" ] || [ -z "$HML_WORKSPACE_ID" ]; then
+            echo "❌ Workspace '$WORKSPACE_KEY' não encontrado"
+            exit 1
+          fi
+          
+          echo "hml_workspace_id=$HML_WORKSPACE_ID" >> $GITHUB_OUTPUT
+          echo "workspace_name=$WORKSPACE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Get Power BI Access Token
+        id: auth
+        shell: pwsh
+        run: |
+          $token = ./scripts/Get-PowerBIToken.ps1 `
+            -TenantId $env:TENANT_ID `
+            -ClientId $env:CLIENT_ID `
+            -ClientSecret $env:CLIENT_SECRET
+          
+          Write-Host "::add-mask::$token"
+          "access_token=$token" >> $env:GITHUB_OUTPUT
+
+      - name: Deploy to Power BI HML
+        id: deploy
+        shell: pwsh
+        run: |
+          $pbixFile = Get-ChildItem -Path "./pbix" -Filter "*.pbix" | Select-Object -First 1
+          
+          if (-not $pbixFile) {
+            Write-Error "Nenhum arquivo .pbix encontrado"
+            exit 1
+          }
+          
+          ./scripts/Deploy-PowerBIReport.ps1 `
+            -PbixPath $pbixFile.FullName `
+            -WorkspaceId "${{ steps.workspace.outputs.hml_workspace_id }}" `
+            -ReportName "${{ inputs.report_name }}" `
+            -AccessToken "${{ steps.auth.outputs.access_token }}" `
+            -ConflictAction "CreateOrOverwrite"
+
+      - name: Comment on issue
+        if: inputs.issue_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = parseInt('${{ inputs.issue_number }}');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `## ✅ Deploy HML Concluído\n\n**Workspace:** ${{ steps.workspace.outputs.workspace_name }}\n**Report ID:** \`${{ steps.deploy.outputs.report_id }}\`\n\n> Relatório disponível para validação.`
+            });
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['deployed-hml']
+            });
