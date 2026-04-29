@@ -1,0 +1,83 @@
+name: "📦 Solicitação de Deploy — Power BI"
+description: "Solicitação de publicação de relatório Power BI (HML ou Produção)"
+title: "[DEPLOY] "
+labels: ["solicitacao-deploy"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Solicitação de Deploy Power BI
+        Preencha todos os campos abaixo e **anexe o arquivo `.pbix` antes de submeter**.
+        Para deploy em Produção, anexe também o **documento Word de evidência**.
+
+  - type: dropdown
+    id: target_env
+    attributes:
+      label: "Ambiente de destino"
+      description: "Para PRD, é obrigatório ter validado o relatório em HML antes."
+      options:
+        - "HML — Homologação"
+        - "PRD — Produção"
+    validations:
+      required: true
+
+  - type: input
+    id: workspace_key
+    attributes:
+      label: "Chave do Workspace"
+      description: "Chave conforme cadastrado em `workspaces-registry/workspaces.yaml` (ex: `fin_receita`)"
+      placeholder: "ex: fin_receita"
+    validations:
+      required: true
+
+  - type: input
+    id: report_name
+    attributes:
+      label: "Nome do Relatório"
+      description: "Nome exato que o relatório terá no Power BI Service"
+      placeholder: "ex: Receita Mensal"
+    validations:
+      required: true
+
+  - type: input
+    id: pbix_file
+    attributes:
+      label: "Arquivo .pbix"
+      description: "Arraste o arquivo .pbix para o corpo desta issue e cole aqui o nome do arquivo"
+      placeholder: "ex: receita-mensal.pbix"
+    validations:
+      required: true
+
+  - type: input
+    id: issue_hml_ref
+    attributes:
+      label: "Número da Issue de Homologação (somente PRD)"
+      description: "Número da issue de HML correspondente. Obrigatório apenas para deploy em PRD."
+      placeholder: "ex: 42"
+    validations:
+      required: false
+
+  - type: textarea
+    id: descricao
+    attributes:
+      label: "Descrição da mudança"
+      description: "O que foi alterado nesta versão? Para PRD, inclua o que foi validado em HML."
+      placeholder: "Descreva as alterações realizadas"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist_hml
+    attributes:
+      label: "Checklist"
+      options:
+        - label: "O arquivo .pbix está anexado nesta issue"
+          required: true
+        - label: "O workspace_key está correto e cadastrado no workspaces.yaml"
+          required: true
+        - label: "[Somente PRD] O documento Word de evidência está anexado nesta issue"
+          required: false
+        - label: "[Somente PRD] O relatório foi validado no ambiente de Homologação"
+          required: false
