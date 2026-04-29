@@ -4,42 +4,21 @@
 # GitHub Enterprise + SSO/SAML + Entra ID
 # Os grupos Entra ID sincronizam automaticamente como GitHub Teams via SSO.
 #
-# Regras de aprovação:
+# Aprovações PRD:
+#   - @denissonsilvaa/pbi-coe-report     → CoE Report (obrigatório, global)
+#   - @denissonsilvaa/pbi-owners-{key}   → Dono da Workspace (por workspace)
 #
-#   PRs para HML:
-#     → Apenas o Dono da Workspace precisa aprovar
-#     → CoE é reviewer automático mas não bloqueante (informativo)
-#
-#   PRs para PRD:
-#     → CoE Report obrigatório (primeira aprovação)
-#     → Dono da Workspace obrigatório (segunda aprovação)
-#     → Ambos configurados via branch protection rules da branch prd
-#
-# Formato:
-#   /caminho/  @org/github-team-slug
-#
-# O github-team-slug é gerado automaticamente pelo SSO sync do Entra ID.
-# Convenção adotada:
-#   Entra ID group : pbi-owners-{workspace_key}
-#   GitHub Team    : pbi-owners-{workspace_key}
-#   Entra ID group : pbi-coe-report
-#   GitHub Team    : pbi-coe-report
-#
+# Branch protection rules da branch prd devem ter Required approvals = 2
+# e Require review from Code Owners ativado.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # CoE Report é reviewer global — cobre todos os arquivos
-# (atua como required reviewer na branch prd via branch protection)
-*   @sua-org/pbi-coe-report
+*   @denissonsilvaa/pbi-coe-report
 
 # ── Donos por workspace ───────────────────────────────────────────────────────
-# Gerado automaticamente pelo workflow provision-workspace.yml
-# NÃO edite manualmente — use o workflow de provisionamento
-#
-# Padrão: /{workspace_key}/   @sua-org/pbi-owners-{workspace_key}
+# Padrão: /{workspace_key}/   @denissonsilvaa/pbi-owners-{workspace_key}
+# Adicione uma linha por workspace abaixo.
 # ─────────────────────────────────────────────────────────────────────────────
 
-/alianca_inteligencia_clientes/   @sua-org/pbi-owners-alianca-inteligencia-clientes
-/exemplo_fin/                     @sua-org/pbi-owners-exemplo-fin
-
-# Novos workspaces são adicionados aqui automaticamente pelo
-# workflow provision-workspace.yml ao criar um novo workspace.
+/alianca_inteligencia_clientes/   @denissonsilvaa/pbi-owners-alianca-inteligencia-clientes
+/exemplo_fin/                     @denissonsilvaa/pbi-owners-exemplo-fin
