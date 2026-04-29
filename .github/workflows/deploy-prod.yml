@@ -41,11 +41,8 @@ env:
   CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
 jobs:
-  # ============================================================================
-  # JOB 1: Lê configuração e prepara ambiente
-  # ============================================================================
   prepare:
-    name: Prepare deployment
+    name: Preparar deploy
     runs-on: ubuntu-latest
     outputs:
       prod_workspace_id: ${{ steps.workspace.outputs.prod_workspace_id }}
@@ -56,7 +53,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read workspace configuration
+      - name: Ler configuração do workspace
         id: workspace
         run: |
           WORKSPACE_KEY="${{ inputs.workspace_key }}"
@@ -67,54 +64,39 @@ jobs:
           OWNER_ENV=$(cat workspaces-registry/workspaces.yaml | yq -r ".workspaces[] | select(.key == \"$WORKSPACE_KEY\") | .owner_env")
           
           if [ "$PROD_WORKSPACE_ID" == "null" ] || [ -z "$PROD_WORKSPACE_ID" ]; then
-            echo "❌ Workspace '$WORKSPACE_KEY' não encontrado"
+            echo "Workspace '$WORKSPACE_KEY' não encontrado"
             exit 1
           fi
           
           echo "prod_workspace_id=$PROD_WORKSPACE_ID" >> $GITHUB_OUTPUT
           echo "workspace_name=$WORKSPACE_NAME" >> $GITHUB_OUTPUT
           echo "owner_env=$OWNER_ENV" >> $GITHUB_OUTPUT
-          
-          echo "📋 Workspace: $WORKSPACE_NAME"
-          echo "📋 Environment Owner: $OWNER_ENV"
 
-  # ============================================================================
-  # JOB 2: Aprovação da Sustentação (Gate 1)
-  # ============================================================================
-  approval-sustentacao:
-    name: Aguardando aprovação Sustentação
+  approval-ti:
+    name: "Gate 1: Aprovação TI"
     needs: prepare
     runs-on: ubuntu-latest
-    environment: PROD_SUSTENTACAO
+    environment: PROD_TI
     
     steps:
-      - name: Aprovação Sustentação confirmada
+      - name: Coe Reports aprovou
         run: |
-          echo "✅ Aprovado por Sustentação"
-          echo "📋 Workspace: ${{ needs.prepare.outputs.workspace_name }}"
-          echo "📋 Report: ${{ inputs.report_name }}"
+          echo "Aprovado pela equipe de TI"
 
-  # ============================================================================
-  # JOB 3: Aprovação do Owner (Gate 2 - dinâmico por workspace)
-  # ============================================================================
-  approval-owner:
-    name: Aguardando aprovação Owner
-    needs: [prepare, approval-sustentacao]
+  approval-negocio:
+    name: "Gate 2: Aprovação Negócio"
+    needs: [prepare, approval-ti]
     runs-on: ubuntu-latest
     environment: ${{ needs.prepare.outputs.owner_env }}
     
     steps:
-      - name: Aprovação Owner confirmada
+      - name: Negócio aprovou
         run: |
-          echo "✅ Aprovado pelo Owner do workspace"
-          echo "📋 Environment: ${{ needs.prepare.outputs.owner_env }}"
+          echo "Aprovado pelo Product Owner"
 
-  # ============================================================================
-  # JOB 4: Deploy efetivo em PROD
-  # ============================================================================
   deploy-prod:
-    name: Deploy to PROD
-    needs: [prepare, approval-owner]
+    name: Deploy PROD
+    needs: [prepare, approval-negocio]
     runs-on: ubuntu-latest
     
     outputs:
@@ -131,7 +113,7 @@ jobs:
           name: ${{ inputs.pbix_artifact }}
           path: ./pbix
 
-      - name: Get Power BI Access Token
+      - name: Obter token de acesso
         id: auth
         shell: pwsh
         run: |
@@ -143,7 +125,7 @@ jobs:
           Write-Host "::add-mask::$token"
           "access_token=$token" >> $env:GITHUB_OUTPUT
 
-      - name: Deploy to Power BI PROD
+      - name: Deploy para Power BI PROD
         id: deploy
         shell: pwsh
         run: |
@@ -161,29 +143,14 @@ jobs:
             -AccessToken "${{ steps.auth.outputs.access_token }}" `
             -ConflictAction "CreateOrOverwrite"
 
-      - name: Trigger dataset refresh (optional)
-        if: always()
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          if ("${{ steps.deploy.outputs.dataset_id }}" -ne "") {
-            ./scripts/Invoke-DatasetRefresh.ps1 `
-              -WorkspaceId "${{ needs.prepare.outputs.prod_workspace_id }}" `
-              -DatasetId "${{ steps.deploy.outputs.dataset_id }}" `
-              -AccessToken "${{ steps.auth.outputs.access_token }}"
-          }
-
-  # ============================================================================
-  # JOB 5: Finalização e notificação
-  # ============================================================================
-  notify:
-    name: Notify completion
+  finalize:
+    name: Finalizar
     needs: [prepare, deploy-prod]
     runs-on: ubuntu-latest
     if: always()
     
     steps:
-      - name: Comment on issue - Success
+      - name: Fechar issue com sucesso
         if: needs.deploy-prod.result == 'success' && inputs.issue_number != ''
         uses: actions/github-script@v7
         with:
@@ -193,37 +160,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `## 🚀 Deploy PROD Concluído\n\n` +
-                    `| Item | Valor |\n` +
-                    `|------|-------|\n` +
-                    `| **Workspace** | ${{ needs.prepare.outputs.workspace_name }} |\n` +
-                    `| **Report ID** | \`${{ needs.deploy-prod.outputs.report_id }}\` |\n` +
-                    `| **Status** | ✅ Em Produção |\n\n` +
-                    `Aprovado por: Sustentação + Owner`
+              body: `## Deploy PROD Concluído!\n\n**Workspace:** ${{ needs.prepare.outputs.workspace_name }}\n**Relatório:** ${{ inputs.report_name }}\n\n**Aprovações:**\n- TI\n- Negócio`
             });
             await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              state: 'closed',
-              labels: ['deployed-prod', 'completed']
-            });
-
-      - name: Comment on issue - Failure
-        if: needs.deploy-prod.result == 'failure' && inputs.issue_number != ''
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const issueNumber = parseInt('${{ inputs.issue_number }}');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body: `## ❌ Deploy PROD Falhou\n\nVerifique os logs do workflow para detalhes.\n\n[Ver execução](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
-            });
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              labels: ['deploy-failed']
+              state: 'closed'
             });
